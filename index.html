@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リーグ戦管理アプリ</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚽ リーグ戦管理アプリ</h1>
+            <button id="resetAll" class="btn btn-danger" style="margin-top: 15px;">全データをリセット</button>
+        </header>
+
+        <main>
+            <!-- 大会タイトル設定セクション -->
+            <section class="section">
+                <h2>大会タイトル</h2>
+                <div class="input-group">
+                    <input type="text" id="tournamentTitle" placeholder="大会名を入力してください">
+                </div>
+            </section>
+
+            <!-- 参加者管理セクション -->
+            <section class="section">
+                <h2>参加者管理</h2>
+                <div class="participant-controls">
+                    <div class="input-group">
+                        <input type="text" id="participantName" placeholder="参加者名を入力">
+                        <button id="addParticipant" class="btn btn-primary">追加</button>
+                    </div>
+                </div>
+                <div id="participantsList" class="participants-list"></div>
+            </section>
+
+            <!-- 順位決定要素設定セクション -->
+            <section class="section">
+                <h2>順位決定要素の設定</h2>
+                <div class="sorting-criteria">
+                    <div class="criteria-list" id="criteriaList"></div>
+                    <select id="criteriaSelect" class="select-input">
+                        <option value="">要素を選択...</option>
+                        <option value="wins">勝ち数</option>
+                        <option value="winRate">勝率</option>
+                        <option value="goalDiff">得失点差</option>
+                        <option value="goalsFor">得点数</option>
+                        <option value="goalsAgainst">失点数</option>
+                        <option value="points">勝ち点（勝3、分1、負0）</option>
+                        <option value="headToHead">直接対決</option>
+                    </select>
+                    <button id="addCriteria" class="btn btn-secondary">要素を追加</button>
+                </div>
+            </section>
+
+            <!-- 対戦組み合わせセクション -->
+            <section class="section">
+                <h2>対戦組み合わせ</h2>
+                <button id="generateMatches" class="btn btn-primary">対戦組み合わせを生成</button>
+                <div class="view-toggle">
+                    <button id="listViewBtn" class="btn btn-secondary btn-small active">リスト表示</button>
+                    <button id="tableViewBtn" class="btn btn-secondary btn-small">表表示</button>
+                </div>
+                <div id="matchesList" class="matches-list"></div>
+                <div id="matchesTable" class="matches-table-container" style="display: none;"></div>
+            </section>
+
+            <!-- 対戦結果一覧セクション -->
+            <section class="section">
+                <h2>対戦結果一覧</h2>
+                <div id="resultsMatrix" class="results-matrix-container"></div>
+            </section>
+
+            <!-- 順位表セクション -->
+            <section class="section">
+                <h2>順位表</h2>
+                <div id="standingsTable" class="standings-table"></div>
+            </section>
+
+            <!-- 共有セクション -->
+            <section class="section share-section">
+                <h2>結果を共有</h2>
+                <div class="share-buttons">
+                    <button id="shareResults" class="btn btn-primary">対戦結果一覧を画像で保存</button>
+                    <button id="shareStandings" class="btn btn-primary">順位表を画像で保存</button>
+                    <button id="shareBoth" class="btn btn-secondary">両方を画像で保存</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
