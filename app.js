@@ -268,10 +268,14 @@ function renderCriteria() {
     
     container.innerHTML = state.criteria.map((criterion, index) => `
         <div class="criteria-item" draggable="true" 
+             data-index="${index}"
              ondragstart="dragStart(event, ${index})"
              ondragover="dragOver(event)"
              ondrop="drop(event, ${index})"
-             ondragend="dragEnd(event)">
+             ondragend="dragEnd(event)"
+             ontouchstart="touchStart(event, ${index})"
+             ontouchmove="touchMove(event)"
+             ontouchend="touchEnd(event, ${index})">
             <span class="criteria-order">${index + 1}</span>
             <span class="drag-handle">☰</span>
             <span>${criteriaNames[criterion]}</span>
@@ -282,16 +286,22 @@ function renderCriteria() {
 
 // ドラッグ&ドロップ機能
 let draggedIndex = null;
+let touchStartY = null;
+let touchStartElement = null;
 
 function dragStart(e, index) {
     draggedIndex = index;
-    e.dataTransfer.effectAllowed = 'move';
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+    }
     e.currentTarget.style.opacity = '0.5';
 }
 
 function dragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'move';
+    }
 }
 
 function drop(e, dropIndex) {
@@ -305,6 +315,98 @@ function drop(e, dropIndex) {
 function dragEnd(e) {
     e.currentTarget.style.opacity = '1';
     draggedIndex = null;
+}
+
+// タッチイベント対応（スマホ向け）
+function touchStart(e, index) {
+    // 削除ボタンのクリックを防ぐ
+    if (e.target.classList.contains('remove-btn')) {
+        return;
+    }
+    
+    e.preventDefault();
+    touchStartY = e.touches[0].clientY;
+    touchStartElement = e.currentTarget;
+    draggedIndex = index;
+    touchStartElement.style.opacity = '0.6';
+    touchStartElement.style.transform = 'scale(1.05)';
+    touchStartElement.style.zIndex = '1000';
+    touchStartElement.style.position = 'relative';
+}
+
+function touchMove(e) {
+    if (!touchStartElement || draggedIndex === null) return;
+    
+    e.preventDefault();
+    const touch = e.touches[0];
+    const currentY = touch.clientY;
+    const deltaY = currentY - touchStartY;
+    
+    // 現在の要素の位置を更新
+    touchStartElement.style.transform = `translateY(${deltaY}px) scale(1.05)`;
+    
+    // 一時的に要素を非表示にして、下の要素を検出
+    touchStartElement.style.pointerEvents = 'none';
+    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchStartElement.style.pointerEvents = 'auto';
+    
+    // すべての要素のハイライトをリセット
+    document.querySelectorAll('.criteria-item').forEach(item => {
+        if (item !== touchStartElement) {
+            item.style.backgroundColor = '';
+            item.style.border = '';
+        }
+    });
+    
+    // 下の要素を検出してハイライト
+    if (elementBelow) {
+        const criteriaItem = elementBelow.closest('.criteria-item');
+        if (criteriaItem && criteriaItem !== touchStartElement) {
+            const dropIndex = parseInt(criteriaItem.dataset.index);
+            if (dropIndex !== draggedIndex && !isNaN(dropIndex)) {
+                criteriaItem.style.backgroundColor = 'rgba(102, 126, 234, 0.4)';
+                criteriaItem.style.border = '2px solid #667eea';
+            }
+        }
+    }
+}
+
+function touchEnd(e, index) {
+    if (!touchStartElement || draggedIndex === null) return;
+    
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    
+    // 一時的に要素を非表示にして、下の要素を検出
+    touchStartElement.style.pointerEvents = 'none';
+    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchStartElement.style.pointerEvents = 'auto';
+    
+    // すべての要素のスタイルをリセット
+    touchStartElement.style.opacity = '1';
+    touchStartElement.style.transform = '';
+    touchStartElement.style.zIndex = '';
+    touchStartElement.style.position = '';
+    
+    document.querySelectorAll('.criteria-item').forEach(item => {
+        item.style.backgroundColor = '';
+        item.style.border = '';
+    });
+    
+    // ドロップ位置を判定
+    if (elementBelow) {
+        const criteriaItem = elementBelow.closest('.criteria-item');
+        if (criteriaItem && criteriaItem !== touchStartElement) {
+            const dropIndex = parseInt(criteriaItem.dataset.index);
+            if (dropIndex !== draggedIndex && !isNaN(dropIndex)) {
+                moveCriteria(draggedIndex, dropIndex);
+            }
+        }
+    }
+    
+    draggedIndex = null;
+    touchStartY = null;
+    touchStartElement = null;
 }
 
 // 対戦組み合わせの生成（ラウンドロビン方式）
@@ -844,17 +946,24 @@ async function shareAsImage(type) {
     try {
         let element;
         let filename;
+        let shareTitle;
         
         if (type === 'results') {
             element = document.querySelector('.results-matrix-container');
             filename = state.tournamentTitle 
                 ? `${state.tournamentTitle}_対戦結果一覧.png`
                 : '対戦結果一覧.png';
+            shareTitle = state.tournamentTitle 
+                ? `${state.tournamentTitle} - 対戦結果一覧`
+                : '対戦結果一覧';
         } else if (type === 'standings') {
             element = document.querySelector('.standings-table');
             filename = state.tournamentTitle 
                 ? `${state.tournamentTitle}_順位表.png`
                 : '順位表.png';
+            shareTitle = state.tournamentTitle 
+                ? `${state.tournamentTitle} - 順位表`
+                : '順位表';
         } else if (type === 'both') {
             // 両方を結合
             const resultsElement = document.querySelector('.results-matrix-container');
@@ -864,6 +973,13 @@ async function shareAsImage(type) {
                 alert('対戦結果一覧と順位表の両方が必要です。');
                 return;
             }
+            
+            filename = state.tournamentTitle 
+                ? `${state.tournamentTitle}_対戦結果と順位表.png`
+                : '対戦結果と順位表.png';
+            shareTitle = state.tournamentTitle 
+                ? `${state.tournamentTitle} - 対戦結果と順位表`
+                : '対戦結果と順位表';
             
             // 両方の画像を生成
             const resultsCanvas = await html2canvas(resultsElement, {
@@ -893,17 +1009,38 @@ async function shareAsImage(type) {
             // 順位表を描画（対戦結果一覧の下に）
             ctx.drawImage(standingsCanvas, 0, resultsCanvas.height + 40);
             
-            // ダウンロード
-            combinedCanvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = state.tournamentTitle 
-                    ? `${state.tournamentTitle}_対戦結果と順位表.png`
-                    : '対戦結果と順位表.png';
-                a.click();
-                URL.revokeObjectURL(url);
+            // 画像をBlobに変換
+            const blob = await new Promise(resolve => {
+                combinedCanvas.toBlob(resolve, 'image/png');
             });
+            
+            // Web Share APIが利用可能な場合（スマホなど）
+            if (navigator.share && navigator.canShare && blob) {
+                const file = new File([blob], filename, { type: 'image/png' });
+                if (navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            title: shareTitle,
+                            files: [file]
+                        });
+                        return;
+                    } catch (shareError) {
+                        if (shareError.name !== 'AbortError') {
+                            console.error('共有エラー:', shareError);
+                        } else {
+                            return; // ユーザーがキャンセルした場合
+                        }
+                    }
+                }
+            }
+            
+            // Web Share APIが利用できない場合や、ファイル共有ができない場合はダウンロード
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
             
             return;
         }
@@ -921,15 +1058,38 @@ async function shareAsImage(type) {
             useCORS: true
         });
         
-        // 画像をダウンロード
-        canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
+        // 画像をBlobに変換
+        const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/png');
         });
+        
+        // Web Share APIが利用可能な場合（スマホなど）
+        if (navigator.share && navigator.canShare && blob) {
+            const file = new File([blob], filename, { type: 'image/png' });
+            if (navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: shareTitle,
+                        files: [file]
+                    });
+                    return;
+                } catch (shareError) {
+                    if (shareError.name !== 'AbortError') {
+                        console.error('共有エラー:', shareError);
+                    } else {
+                        return; // ユーザーがキャンセルした場合
+                    }
+                }
+            }
+        }
+        
+        // Web Share APIが利用できない場合や、ファイル共有ができない場合はダウンロード
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
         
     } catch (error) {
         console.error('画像生成エラー:', error);
@@ -970,6 +1130,9 @@ window.dragStart = dragStart;
 window.dragOver = dragOver;
 window.drop = drop;
 window.dragEnd = dragEnd;
+window.touchStart = touchStart;
+window.touchMove = touchMove;
+window.touchEnd = touchEnd;
 window.updateMatchResult = updateMatchResult;
 
 // ページ読み込み時に初期化
